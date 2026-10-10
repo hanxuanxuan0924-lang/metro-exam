@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>试卷答题系统</title>
+<style>
+:root{--ink:#1f2937;--muted:#667085;--line:#e5e7eb;--blue:#2563eb;--bg:#f4f7fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top{max-width:1000px;margin:auto;padding:12px 18px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.brand{font-weight:750;font-size:18px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{border:1px solid #d0d5dd;background:white;color:#344054;border-radius:9px;padding:8px 12px;font-size:14px;cursor:pointer}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff}button:hover{filter:brightness(.97)}
+main{max-width:900px;margin:24px auto;padding:0 14px 50px}.hero,.section,.qcard,.scorebox{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px #10182808}
+.hero{padding:24px;margin-bottom:18px}.hero h1{font-size:25px;margin:0 0 10px}.meta{display:flex;gap:12px;flex-wrap:wrap}.meta label{display:flex;align-items:center;gap:6px}.meta input{border:0;border-bottom:1px solid #98a2b3;padding:5px;width:150px;font:inherit;outline:none}
+.progress{height:7px;background:#eef2f6;border-radius:20px;overflow:hidden;margin-top:16px}.progress span{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+.section{padding:18px;margin:16px 0}.section h2{font-size:19px;margin:0 0 14px}.qcard{padding:17px;margin:12px 0;box-shadow:none}.qhead{font-weight:650;margin-bottom:12px;white-space:pre-wrap}.qnum{color:var(--blue);margin-right:6px}
+.opts{display:grid;gap:8px}.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid #eaecf0;padding:9px 11px;border-radius:9px;cursor:pointer}.opt:has(input:checked){border-color:#84adff;background:#eff6ff}.opt input{margin-top:5px;accent-color:var(--blue)}textarea,input[type=text]{font:inherit;width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:10px;background:white}textarea{min-height:110px;resize:vertical}.editpanel{display:none;background:#fffbeb;border:1px solid #f4d27a;border-radius:10px;padding:12px;margin-top:12px}.editing .editpanel{display:block}.editpanel label{display:block;font-size:13px;color:#475467;margin:8px 0}.editpanel textarea{min-height:65px}.answer{display:none;margin-top:10px;padding:10px;background:#ecfdf3;border:1px solid #abefc6;border-radius:8px;color:#05603a;white-space:pre-wrap}.show-answers .answer{display:block}.scorebox{padding:18px;margin:18px 0}.scorebig{font-size:30px;font-weight:800;color:var(--blue)}.small{font-size:13px;color:var(--muted)}.foot{color:var(--muted);font-size:13px;text-align:center;margin:22px}
+@media(max-width:600px){.top{align-items:flex-start}.brand{width:100%}.hero{padding:18px}.hero h1{font-size:21px}.section{padding:12px}.qcard{padding:13px}.actions button{padding:7px 9px}}
+@media print{header,.actions,.editpanel,.foot,.progress{display:none!important}body{background:white}.hero,.section,.qcard,.scorebox{box-shadow:none;break-inside:avoid}main{max-width:none;margin:0}.answer{display:block!important}.qcard{border:0;border-bottom:1px solid #ddd}.section{border:0}}
+</style></head>
+<body>
+<header><div class="top"><div class="brand">▤ 试卷答题系统</div><div class="actions">
+<button id="editBtn">编辑试题 / 答案</button><button id="showBtn">显示答案</button><button id="gradeBtn" class="primary">提交并计分</button><button id="exportBtn">导出答卷</button><button onclick="window.print()">打印 / 保存 PDF</button>
+</div></div></header>
+<main id="app">
+<div class="hero"><h1 id="paperTitle"></h1><div class="meta"><label>姓名 <input id="studentName" placeholder="请输入姓名"></label><label>日期 <input id="examDate" type="text" placeholder="可选填写"></label><label>总分 <strong id="totalPoints">100</strong> 分</label></div><div class="small" style="margin-top:8px">答题后点击“提交并计分”。客观题按已设置的标准答案自动判分；简答题和计算题需人工阅卷。原始试卷未提供标准答案，需先在编辑模式中设置答案键。</div><div class="progress"><span id="progressBar"></span></div></div>
+<div id="questions"></div><div class="scorebox" id="result" hidden><div class="small">客观题得分（不含简答题、计算题人工评分）</div><div class="scorebig" id="scoreText">0 分</div><div id="scoreDetails"></div></div>
+<div class="foot">本页面为单文件离线答题工具；答题内容默认保存在当前浏览器本地，不会上传到服务器。</div>
+</main>
+<script>
+const DEFAULT_DATA = {"title": "沈阳地铁笔试考核试卷", "sections": [{"type": "single", "title": "一、单项选择", "points": 1, "questions": [{"text": "根据《城市轨道交通工程监测技术规范》（GB 50911-2013）基坑设计深度为H，则基坑工程监测主要影响区为基坑周边（）。", "options": ["0.7H", "2.0H", "2.5H", "3.0H"], "answer": ""}, {"text": "某盾构隧道地表沉降曲线Peck计算公式中的沉降槽宽度系数为i，根据《城市轨道交通工程监测技术规范》（GB 50911-2013）该隧道工程监测主要影响区为隧道中线至隧道外（）。", "options": ["0.7i", "1.0i", "2.5i", "3.0i"], "answer": ""}, {"text": "某基坑设计深度为28.2m，根据《城市轨道交通工程监测技术规范》（GB 50911-2013）基坑工程监测自身风险等级为（）。", "options": ["一级", "二级", "三级", "四级"], "answer": ""}, {"text": "根据《城市轨道交通工程监测技术规范》（GB 50911-2013）（）隧道自身风险等级为二级。", "options": ["超浅埋", "浅埋", "深埋", "一般断面"], "answer": ""}, {"text": "（原试卷第5题题干及选项缺失，请在编辑模式中补充。）", "options": ["选项A", "选项B", "选项C", "选项D"], "answer": ""}, {"text": "某地铁工程车站主体基坑监测主要影响区内存在中压燃气管线，根据《城市轨道交通工程监测技术规范》（GB 50911-2013）基坑工程监测周边环境风险等级为（）。", "options": ["一级", "二级", "三级", "四级"], "answer": ""}, {"text": "某基坑周围地质存在性质较差的特殊性岩土，需要专门处理，根据《城市轨道交通工程监测技术规范》（GB 50911-2013）该基坑周围地质条件复杂程度为（）。", "options": ["简单", "中等", "普通", "复杂"], "answer": ""}, {"text": "基坑自身风险等级评价为一级，周边环境风险评价等级为二级，地质条件复杂程度等级为中等，根据《城市轨道交通工程监测技术规范》（GB 50911-2013）该基坑监测等级为（）。", "options": ["一级", "二级", "三级", "四级"], "answer": ""}, {"text": "基坑监测前应进行基准点、监测点布设，基准点埋设应根据设计要求埋设于变形影响区域（）外，且每个监测工程的竖向位移观测的基准点不应少于3个，水平位移观测的基准点不应少于4个。", "options": ["40m", "30m", "50m", "100m"], "answer": ""}, {"text": "桩体水平位移监测点应沿基坑周边布设，基坑各边（）部位、（）部位及其他代表性部位的桩（墙）体应布设监测点。", "options": ["中间；阴角", "拐角；阴角", "拐角；阳角", "中间；阳角"], "answer": ""}, {"text": "钢支撑轴力监测点主断面沿竖向布设，每层支撑均应布设，数量不宜少于每层支撑数量的（），且不应少于（）。", "options": ["5%；2根", "10%；2根", "5%；3根", "10%；3根"], "answer": ""}, {"text": "砼支撑轴力监测点主断面沿竖向布设，每层支撑应布设。可布设在支撑中部或两支点间（）部位，当支撑长度较大时也可布设在（）点处，并应避开节点位置。", "options": ["1/4；1/3", "1/3；1/4", "1/2；1/4", "1/4；1/5"], "answer": ""}, {"text": "当基坑短边跨度过大时，会在基坑中间布设立柱结构以保证基坑开挖过程中的安全，根据相关资料应对立柱结构进行监测，立柱监测点布设不应少于立柱总根数的（），逆作法施工的基坑不应少于（），且均不应少于（）。", "options": ["5%；10%；3根", "10%；5%；2根", "10%；10%；3根", "5%；5%；2根"], "answer": ""}, {"text": "深基坑监测桩体水平位移监测所用仪器测斜仪的精度要求为（）。", "options": ["±0.01mm/0.5m", "±0.02mm/0.5m", "±0.2mm/0.25m", "±0.05mm/0.5m"], "answer": ""}, {"text": "监测预警采用“双控指标”，黄色监测预警为变形监测的绝对值和速率值双控指标均达到监测控制值的（）；或双控指标之一达到监测控制值的（）。", "options": ["70%；75%", "70%；85%", "75%；85%", "85%；100%"], "answer": ""}, {"text": "施工监测初始值应在监测点验收完成后施工动土前完成采集工作，至少连续独立进行（）次观测，取其稳定值的平均值作为初始值并与第三方监测单位初始值进行对比，检测的限差要求为（），精度满足限差要求的监测初始值可投入使用。", "options": ["2；±2mm", "2；±3mm", "3；±2mm", "3；±3mm"], "answer": ""}, {"text": "每月定期对全站仪等各类仪器进行自检，1″级全站仪一测回2C互差为（）。", "options": ["≤3″", "≤6″", "≤9″", "≤12″"], "answer": ""}, {"text": "水准仪每次使用前需进行自检，当监测等级为一级时，水准仪i角不得大于（）；当监测等级为二级时，水准仪i角不得大于（）。", "options": ["5″；10″", "10″；15″", "15″；20″", "20″；30″"], "answer": ""}, {"text": "周边建(构)筑物倾斜监测点布设原则上只在重要的高层建筑物上进行，（）层以上必测。", "options": ["1", "2", "3", "4"], "answer": ""}, {"text": "监测期间，应定期对监测基准网进行复测，复测频率一般为（），若遇到特殊情况需加密复测频率。", "options": ["1次/1月", "2次/1月", "1次/2月", "1次/3月"], "answer": ""}]}, {"type": "multi", "title": "二、多项选择", "points": 2, "questions": [{"text": "基坑在监测等级为一级时，下列监测项目中必测项目有（）。", "options": ["地表沉降", "支撑轴力", "桩体水平位移", "建筑物裂缝", "地下水位", "桩体结构应力", "立柱结构应力"], "answer": []}, {"text": "现场安全巡查的主要对象为工程结构自身和周边环境，巡查内容包含以下哪些（）。", "options": ["施工工况", "支护结构", "周边环境", "监测设施"], "answer": []}, {"text": "以下哪些内容是对施工工况的巡查（）。", "options": ["开挖长度、分层高度及坡度，开挖面暴露时间", "基坑侧壁及周边地表截、排水措施及效果，坑边或基底有无积水", "基坑周边有无超载", "支撑是否及时架设", "监测点有无破坏"], "answer": []}, {"text": "当遇到下列哪些情况时，应适当提高监测或现场巡查频率（）。", "options": ["基坑底部、坡体或支护结构出现管涌、渗漏或流砂等现象", "监测数据变化量较大或变化速率加快", "基坑及周边大量积水、长时间连续降雨、市政管道出现泄漏", "超出规定预（报）警值时", "监测数据异常时"], "answer": []}, {"text": "以下对预警状态描述正确的是（）。", "options": ["黄色预警：“双控”指标（指累计变化量、变化速率）均超过控制值70%或双控之一超过85%", "黄色预警：“双控”指标（指累计变化量、变化速率）均超过控制值75%或双控之一超过85%", "橙色预警：“双控”指标（指累计变化量、变化速率）均超过控制值85%或双控之一超过100%", "红色预警：“双控”指标（指累计变化量、变化速率）均超过控制值100%"], "answer": []}, {"text": "监测范围应结合工程自身的特点和周边环境条件进行确定，监测范围应覆盖工程周边受施工影响的主要影响区和次要影响区两个区域，主要影响区有（）。", "options": ["基坑周边0.7H", "H·tan（45°－Φ/2）", "H·tan（45°－Φ/2）～（2.0～3.0）H", "基坑周边（2.0～3.0）H"], "answer": []}, {"text": "周边环境风险等级为二级时，周边（）。", "options": ["主要影响区内的存在既有轨道交通设施、重要建（构）筑物、重要桥梁与隧道、河流或湖泊", "主要影响区内存在一般建（构）筑物、一般市政桥梁与隧道、高速公路或重要地下管线", "次要影响区内存在既有轨道交通设施、重要建（构）筑物、重要桥梁与隧道、河流或湖泊", "次要影响区内存在城市重要道路、一般地下管线或一般市政设施"], "answer": []}, {"text": "以下哪些地质条件为中等复杂程度（）。", "options": ["地形地貌复杂", "不良地质作用一般发育", "特殊性岩土不需要专门处理", "基、围岩和边坡的岩土性质一般"], "answer": []}, {"text": "以下哪些仪器需要定期送检并出具检定证书（）。", "options": ["电子水准仪", "全站仪", "钢钢尺", "卷尺", "游标卡尺"], "answer": []}, {"text": "以下对于仪器自检描述不正确的是（）。", "options": ["当监测等级为一级时，电子水准仪i角不应大于15″", "当监测等级为二级时，电子水准仪i角不应大于15″", "1″级全站仪一测回2C互差为≤6″", "1″级全站仪一测回2C互差为≤9″"], "answer": []}]}, {"type": "judge", "title": "三、判断题", "points": 2, "questions": [{"text": "桩顶竖向位移监测点应布设在基坑中间部位、阳角部位、深度变化部位、邻近建（构）筑物及地下管线等重要的环境部位、地质条件复杂部位等。", "options": ["正确", "错误"], "answer": ""}, {"text": "水平位移标观测时，视线的长度一般不超过150m，当视线超过150m时，应分段观测，即在中间设置工作基点，先观测工作基点的位移量，再分段观测各测点的位移量，最后将各位移量化算到统一的基准下。", "options": ["正确", "错误"], "answer": ""}, {"text": "观测记录采用全站仪测量记录程序进行时，观测时可完成各项限差指标控制，观测完成后形成电子原始观测文件，通过数据传输处理软件传输至计算机，使用控制网平差软件进行严密平差，得出各点坐标，平差后数据位应精确到0.01mm。", "options": ["正确", "错误"], "answer": ""}, {"text": "对于应测项目，在无异常和无事故征兆且底板浇筑完成14天后适当降低监测频率。", "options": ["正确", "错误"], "answer": ""}, {"text": "监测期间，基准点应定期复测，当使用工作基点时应与基准点进行联测，联测应于冻融期、汛期、冻胀期进行复测频率加密。", "options": ["正确", "错误"], "answer": ""}, {"text": "当变形监测的单日变化量达到控制值85%、累计变化量达到控制标准的60%时为黄色预警状态。", "options": ["正确", "错误"], "answer": ""}, {"text": "初始值采集完成后，应将初始值成果上报第三方监测单位进行检测，检测的限差要求为±1.5mm，精度满足限差要求的初始值可投入使用，超出限差的重新测量即可。", "options": ["正确", "错误"], "answer": ""}, {"text": "在高度超过2m高空作业的人员必须带安全绳，确保安全。", "options": ["正确", "错误"], "answer": ""}, {"text": "测量仪器要设置专库存放，环境要求干燥、通风、防震、防雾、防尘、防锈。仪器应保持干燥，遇雨后将其擦干，放在通风处、晾干后再装箱。各种仪器均不可受压、受冻、受潮或受高温，仪器箱不要靠近火炉或暖气管。", "options": ["正确", "错误"], "answer": ""}, {"text": "对取得的所有图纸和控制成果资料，作业过程的所有中间成果资料以及最终成果资料，应采取严格措施，专人保管，保证未经书面许可，不向第三方提供。", "options": ["正确", "错误"], "answer": ""}]}, {"type": "short", "title": "四、简答题", "points": 10, "questions": [{"text": "工程监测应遵循哪些工作流程？", "answer": ""}, {"text": "地铁车站基坑包含哪些监测项目，分别对应哪些监测仪器。", "answer": ""}]}, {"type": "calc", "title": "五、计算题", "points": 20, "questions": [{"text": "支护结构构件按承载能力极限状态设计时，作用基本组合的综合分项系数不应小于1.25。对于监测等级为一级、二级、三级的支护结构，其结构重要性系数分别不应小于1.1、1.0、0.9。某基坑监测等级为一级，其中两个支撑轴力监测点的控制标准如下表所示，预警标准不应大于70%f，请计算出其对应预警值的最大值和最小值。\\n\\n支撑编号：ZCL10-1；设计轴力f：893 KN；预加轴力fy：200 KN\\n支撑编号：ZCL10-2；设计轴力f：1481 KN；预加轴力fy：300 KN\\n\\n求：ZCL10-1最大值、ZCL10-1最小值、ZCL10-2最大值、ZCL10-2最小值。", "answer": ""}]}]};
+let data=loadData(), editing=false, answers={};
+function loadData(){try{return JSON.parse(localStorage.getItem('exam_data_v1'))||structuredClone(DEFAULT_DATA)}catch(e){return JSON.parse(JSON.stringify(DEFAULT_DATA))}}
+function saveData(){localStorage.setItem('exam_data_v1',JSON.stringify(data))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function letters(i){return String.fromCharCode(65+i)}
+function render(){
+ document.body.classList.toggle('editing',editing);
+ document.getElementById('paperTitle').textContent=data.title;
+ const wrap=document.getElementById('questions');wrap.innerHTML='';
+ let num=0,total=0;
+ data.sections.forEach((sec,si)=>{
+  const section=document.createElement('section');section.className='section';
+  section.innerHTML=`<h2>${esc(sec.title)} <span class="small">（每题 ${sec.points} 分）</span></h2>`;
+  sec.questions.forEach((q,qi)=>{
+   num++;total+=Number(sec.points)||0;const key=`${si}-${qi}`,saved=answers[key];const card=document.createElement('article');card.className='qcard';
+   let inputHTML='';
+   if(['single','multi','judge'].includes(sec.type)){
+    inputHTML='<div class="opts">'+q.options.map((o,oi)=>{const checked=sec.type==='multi'?(Array.isArray(saved)&&saved.includes(oi)):saved===oi;return `<label class="opt"><input type="${sec.type==='multi'?'checkbox':'radio'}" name="ans-${key}" value="${oi}" ${checked?'checked':''} onchange="recordAnswer('${key}', '${sec.type}', this)"> <span><b>${letters(oi)}.</b> ${esc(o)}</span></label>`}).join('')+'</div>';
+   }else{
+    inputHTML=`<textarea placeholder="请在此输入答案…" oninput="recordText('${key}',this)">${esc(saved||'')}</textarea>`;
+   }
+   const answerDisplay=Array.isArray(q.answer)?q.answer.map(x=>letters(Number(x))).join('、'):q.answer;
+   const optsEdit=(q.options||[]).map((o,oi)=>`<label>选项 ${letters(oi)}<input type="text" value="${esc(o)}" onchange="editOption(${si},${qi},${oi},this.value)"></label>`).join('');
+   const keyInput=sec.type==='multi'?`<label>标准答案（填写选项字母，可写 AC 或 A,C）<input type="text" value="${esc((q.answer||[]).map(x=>typeof x==='number'?letters(x):x).join(','))}" onchange="editKey(${si},${qi},this.value)"></label>`:
+    ['single','judge'].includes(sec.type)?`<label>标准答案（填写选项字母，如 A）<input type="text" value="${esc(typeof q.answer==='number'?letters(q.answer):q.answer||'')}" onchange="editKey(${si},${qi},this.value)"></label>`:`<label>参考答案 / 阅卷要点<textarea onchange="editKey(${si},${qi},this.value)">${esc(q.answer||'')}</textarea></label>`;
+   card.innerHTML=`<div class="qhead"><span class="qnum">${num}.</span>${esc(q.text)}</div>${inputHTML}<div class="answer"><b>参考答案：</b>${esc(answerDisplay||'尚未设置标准答案')}</div>
+   <div class="editpanel"><label>题目文本<textarea onchange="editQuestion(${si},${qi},this.value)">${esc(q.text)}</textarea></label>${optsEdit}${keyInput}<button onclick="deleteQuestion(${si},${qi})">删除本题</button></div>`;
+   section.appendChild(card);
+  });
+  const add=document.createElement('button');add.textContent='+ 添加一道题';add.onclick=()=>addQuestion(si);add.style.display=editing?'inline-block':'none';section.appendChild(add);
+  wrap.appendChild(section);
+ });
+ document.getElementById('totalPoints').textContent=total;
+ updateProgress();saveData();
+}
+window.recordAnswer=(key,type,el)=>{if(type==='multi'){const vals=[...document.querySelectorAll(`input[name="ans-${key}"]:checked`)].map(x=>Number(x.value));answers[key]=vals}else answers[key]=Number(el.value);updateProgress()};
+window.recordText=(key,el)=>{answers[key]=el.value;updateProgress()};
+function updateProgress(){let total=0,done=0;data.sections.forEach((s,si)=>s.questions.forEach((q,qi)=>{total++;const a=answers[`${si}-${qi}`];if(Array.isArray(a)?a.length>0:(a!==undefined&&String(a).trim()!==''))done++}));document.getElementById('progressBar').style.width=(total?done/total*100:0)+'%'}
+window.editQuestion=(si,qi,v)=>{data.sections[si].questions[qi].text=v;saveData();render()};
+window.editOption=(si,qi,oi,v)=>{data.sections[si].questions[qi].options[oi]=v;saveData();render()};
+window.editKey=(si,qi,v)=>{const s=data.sections[si],q=s.questions[qi];if(s.type==='multi')q.answer=[...new Set(v.toUpperCase().replace(/[^A-G]/g,'').split('').map(c=>c.charCodeAt(0)-65))].filter(n=>n>=0&&n<q.options.length).sort((a,b)=>a-b);else if(['single','judge'].includes(s.type)){const t=v.trim().toUpperCase();q.answer=/^[A-G]$/.test(t)?t.charCodeAt(0)-65:''}else q.answer=v;saveData();render()};
+window.deleteQuestion=(si,qi)=>{if(confirm('确定删除这道题？')){data.sections[si].questions.splice(qi,1);saveData();render()}};
+window.addQuestion=(si)=>{const s=data.sections[si],q=s.type==='single'?{text:'新单选题',options:['选项A','选项B','选项C','选项D'],answer:''}:s.type==='multi'?{text:'新多选题',options:['选项A','选项B','选项C','选项D'],answer:[]}:s.type==='judge'?{text:'新判断题',options:['正确','错误'],answer:''}:{text:'新题目',answer:''};s.questions.push(q);saveData();render()};
+document.getElementById('editBtn').onclick=()=>{editing=!editing;document.getElementById('editBtn').textContent=editing?'完成编辑':'编辑试题 / 答案';render()};
+document.getElementById('showBtn').onclick=()=>{document.body.classList.toggle('show-answers');document.getElementById('showBtn').textContent=document.body.classList.contains('show-answers')?'隐藏答案':'显示答案'};
+document.getElementById('gradeBtn').onclick=()=>{
+ let score=0,max=0,graded=0,unkeyed=0,details=[];
+ data.sections.forEach((s,si)=>{if(!['single','multi','judge'].includes(s.type))return;s.questions.forEach((q,qi)=>{max+=Number(s.points)||0;const key=`${si}-${qi}`,a=answers[key];let correct=false,hasKey=s.type==='multi'?Array.isArray(q.answer)&&q.answer.length>0:(q.answer!==''&&q.answer!==null&&q.answer!==undefined);
+ if(!hasKey){unkeyed++;details.push(`第 ${qi+1} 题：未设置标准答案，未计分。`);return}
+ if(a===undefined){graded++;details.push(`第 ${qi+1} 题：未作答（0分）。`);return}
+ if(s.type==='multi')correct=Array.isArray(a)&&a.length===q.answer.length&&a.every(x=>q.answer.includes(x));
+ else correct=a===q.answer;
+ graded++;if(correct)score+=Number(s.points)||0;details.push(`第 ${qi+1} 题：${correct?'正确':'错误'}（${correct?s.points:0}/${s.points}分）`);
+ })});
+ document.getElementById('result').hidden=false;document.getElementById('scoreText').textContent=`${score} / ${max} 分`;
+ document.getElementById('scoreDetails').innerHTML=`已判分 ${graded} 题；未设置答案键 ${unkeyed} 题。<br>${details.map(esc).join('<br>')}<p class="small">简答题、计算题未自动评分，请人工阅卷。未设置标准答案的题目不计入已判分题数，但仍显示在客观题满分中。</p>`;
+ document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+};
+document.getElementById('exportBtn').onclick=()=>{
+ const lines=[data.title,`姓名：${document.getElementById('studentName').value||'未填写'}`,`日期：${document.getElementById('examDate').value||'未填写'}`,''];
+ data.sections.forEach((s,si)=>{lines.push(s.title);s.questions.forEach((q,qi)=>{const key=`${si}-${qi}`,a=answers[key];let val='未作答';if(Array.isArray(a))val=a.map(letters).join('、')||'未作答';else if(typeof a==='number')val=letters(a);else if(typeof a==='string'&&a.trim())val=a;lines.push(`${qi+1}. ${q.text}`,`答：${val}`);});lines.push('')});
+ const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(document.getElementById('studentName').value||'答卷')+'_答卷.txt';a.click();URL.revokeObjectURL(url);
+};
+document.getElementById('studentName').addEventListener('input',()=>localStorage.setItem('exam_student_name',document.getElementById('studentName').value));
+document.getElementById('examDate').addEventListener('input',()=>localStorage.setItem('exam_date',document.getElementById('examDate').value));
+document.getElementById('studentName').value=localStorage.getItem('exam_student_name')||'';
+document.getElementById('examDate').value=localStorage.getItem('exam_date')||'';
+render();
+</script></body></html>
